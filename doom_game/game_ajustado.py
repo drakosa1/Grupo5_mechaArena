@@ -31,8 +31,12 @@ DELTA_ANGLE = FOV / NUM_RAYS
 SCALE       = WIDTH // NUM_RAYS    # ancho de cada franja
 
 # Velocidades
-PLAYER_SPEED  = 0.04
-PLAYER_ROT    = 0.002
+# Movimiento ajustado para que la partida sea más controlable.
+# Las velocidades están expresadas en unidades por segundo.
+PLAYER_SPEED  = 3.40       # antes dependía de milisegundos y era inconsistente
+PLAYER_ROT    = 0.0018     # sensibilidad del ratón
+KEY_ROT_SPEED = 2.10       # radianes/segundo con A/D
+SHOOT_COOLDOWN = 350       # ms entre disparos
 
 # Colores temáticos Doom
 BLACK    = (0, 0, 0)
@@ -104,7 +108,8 @@ class Player:
 
     def move(self, keys, dt):
         dx = dy = 0
-        speed = PLAYER_SPEED * dt
+        dt_sec = dt / 1000.0
+        speed = PLAYER_SPEED * dt_sec
 
         if keys[pygame.K_w] or keys[pygame.K_UP]:
             dx += math.cos(self.angle) * speed
@@ -117,8 +122,8 @@ class Player:
         if wall_at(nx, self.y) == 0: self.x = nx
         if wall_at(self.x, ny) == 0: self.y = ny
 
-        if keys[pygame.K_a]: self.angle -= 0.03
-        if keys[pygame.K_d]: self.angle += 0.03
+        if keys[pygame.K_a]: self.angle -= KEY_ROT_SPEED * dt_sec
+        if keys[pygame.K_d]: self.angle += KEY_ROT_SPEED * dt_sec
 
         if self.shoot_cooldown > 0: self.shoot_cooldown -= dt
         if self.pain_flash > 0:     self.pain_flash -= dt
@@ -130,7 +135,7 @@ class Player:
         if self.shoot_cooldown > 0 or self.ammo <= 0:
             return False
         self.ammo -= 1
-        self.shoot_cooldown = 15
+        self.shoot_cooldown = SHOOT_COOLDOWN
         # detectar impacto en el rayo central
         for e in enemies:
             if e.alive and self._can_hit(e):
@@ -161,7 +166,7 @@ class Enemy:
         self.y       = y
         self.alive   = True
         self.health  = 60
-        self.speed   = 0.008
+        self.speed   = 1.25   # unidades/segundo; da más tiempo para reaccionar
         self.attack_cd = 0
         self.anim_t    = random.random() * 6.28   # fase de animación
 
@@ -172,15 +177,16 @@ class Enemy:
 
     def update(self, player, dt):
         if not self.alive: return
-        self.anim_t += 0.05
+        dt_sec = dt / 1000.0
+        self.anim_t += 3.0 * dt_sec
         dx = player.x - self.x
         dy = player.y - self.y
         dist = math.hypot(dx, dy)
 
         # movimiento hacia el jugador
         if dist > 0.6:
-            nx = self.x + (dx/dist) * self.speed * dt
-            ny = self.y + (dy/dist) * self.speed * dt
+            nx = self.x + (dx/dist) * self.speed * dt_sec
+            ny = self.y + (dy/dist) * self.speed * dt_sec
             if wall_at(nx, self.y) == 0: self.x = nx
             if wall_at(self.x, ny) == 0: self.y = ny
 
@@ -189,7 +195,7 @@ class Enemy:
             self.attack_cd -= dt
             if self.attack_cd <= 0:
                 player.take_damage(8)
-                self.attack_cd = 60
+                self.attack_cd = 900  # ms entre ataques enemigos
 
     def screen_pos(self, player, proj_dist):
         dx = self.x - player.x
@@ -556,10 +562,12 @@ def main():
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if state == STATE_PLAY:
-                    hit = player.shoot(enemies)
-                    if hit:
+                    alive_before = sum(e.alive for e in enemies)
+                    fired = player.shoot(enemies)
+                    if fired:
                         shoot_flash = 8
-                        if any(not e.alive for e in enemies):
+                        alive_after = sum(e.alive for e in enemies)
+                        if alive_after < alive_before:
                             kill_msg = 45
 
         # ── TÍTULO ──
