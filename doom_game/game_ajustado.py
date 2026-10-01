@@ -1,6 +1,6 @@
 """
-MECHAARENA DOOM - First Person Shooter con Raycasting
-Estilo clásico de DOOM usando Python + Pygame
+MECHAARENA CYBERPUNK - First Person Shooter con Raycasting
+Estilo Sci-Fi usando Python + Pygame
 Controles:
   W/S       - Mover adelante/atrás
   A/D       - Rotar izquierda/derecha
@@ -13,7 +13,6 @@ import pygame
 import math
 import sys
 import random
-import os
 
 # ─────────────────────────────────────────────
 #  CONSTANTES
@@ -31,31 +30,29 @@ DELTA_ANGLE = FOV / NUM_RAYS
 SCALE       = WIDTH // NUM_RAYS    # ancho de cada franja
 
 # Velocidades
-# Movimiento ajustado para que la partida sea más controlable.
-# Las velocidades están expresadas en unidades por segundo.
-PLAYER_SPEED  = 3.40       # antes dependía de milisegundos y era inconsistente
-PLAYER_ROT    = 0.0018     # sensibilidad del ratón
-KEY_ROT_SPEED = 2.10       # radianes/segundo con A/D
-SHOOT_COOLDOWN = 350       # ms entre disparos
+PLAYER_SPEED  = 3.40       
+PLAYER_ROT    = 0.0018     
+KEY_ROT_SPEED = 2.10       
+SHOOT_COOLDOWN = 350       
 
-# Colores temáticos Doom
-BLACK    = (0, 0, 0)
-WHITE    = (255, 255, 255)
-RED      = (200, 30, 30)
-DARK_RED = (130, 0, 0)
-ORANGE   = (220, 100, 0)
-YELLOW   = (230, 200, 0)
-GRAY     = (80, 80, 80)
-DARK_GRAY= (40, 40, 40)
-GREEN    = (0, 180, 0)
-BLOOD    = (160, 0, 0)
+# Colores temáticos Ciberpunk / Sci-Fi
+BLACK      = (0, 0, 0)
+WHITE      = (255, 255, 255)
+CYAN       = (0, 255, 255)
+BLUE_NEON  = (0, 150, 255)
+PURPLE     = (180, 0, 255)
+LASER_RED  = (255, 20, 20)
+YELLOW     = (230, 200, 0)
+GRAY       = (100, 100, 100)
+DARK_GRAY  = (40, 40, 50)
+GREEN      = (0, 220, 100)
 
-# Paleta de paredes (por tipo de tile)
+# Paleta de paredes (Futurista / Mecánica)
 WALL_COLORS = {
-    1: [(100, 60, 20), (140, 80, 30)],    # piedra marrón
-    2: [(60, 60, 80), (90, 90, 120)],     # metal gris-azul
-    3: [(150, 30, 30),(200, 50, 50)],     # pared roja infernal
-    4: [(20, 60, 20), (30, 90, 30)],      # metal verde
+    1: [(110, 120, 130), (140, 150, 160)],  # Metal industrial claro/oscuro
+    2: [(20, 40, 90), (40, 70, 140)],       # Paneles azul neón
+    3: [(80, 20, 120), (120, 40, 170)],     # Instalaciones púrpuras
+    4: [(20, 80, 50), (40, 120, 80)],       # Servidores verdes oscuros
 }
 
 # ─────────────────────────────────────────────
@@ -104,7 +101,7 @@ class Player:
         self.ammo   = 50
         self.score  = 0
         self.shoot_cooldown = 0
-        self.pain_flash     = 0   # frames de flash rojo al recibir daño
+        self.pain_flash     = 0   
 
     def move(self, keys, dt):
         dx = dy = 0
@@ -136,7 +133,7 @@ class Player:
             return False
         self.ammo -= 1
         self.shoot_cooldown = SHOOT_COOLDOWN
-        # detectar impacto en el rayo central
+        
         for e in enemies:
             if e.alive and self._can_hit(e):
                 e.take_damage(25)
@@ -158,7 +155,7 @@ class Player:
         self.pain_flash = 20
 
 # ─────────────────────────────────────────────
-#  ENEMIGO (Demonio)
+#  ENEMIGO (Mecha)
 # ─────────────────────────────────────────────
 class Enemy:
     def __init__(self, x, y):
@@ -166,9 +163,9 @@ class Enemy:
         self.y       = y
         self.alive   = True
         self.health  = 60
-        self.speed   = 1.25   # unidades/segundo; da más tiempo para reaccionar
+        self.speed   = 1.25   
         self.attack_cd = 0
-        self.anim_t    = random.random() * 6.28   # fase de animación
+        self.anim_t    = random.random() * 6.28   
 
     def take_damage(self, dmg):
         self.health -= dmg
@@ -183,19 +180,17 @@ class Enemy:
         dy = player.y - self.y
         dist = math.hypot(dx, dy)
 
-        # movimiento hacia el jugador
         if dist > 0.6:
             nx = self.x + (dx/dist) * self.speed * dt_sec
             ny = self.y + (dy/dist) * self.speed * dt_sec
             if wall_at(nx, self.y) == 0: self.x = nx
             if wall_at(self.x, ny) == 0: self.y = ny
 
-        # ataque cuerpo a cuerpo
         if dist < 0.9:
             self.attack_cd -= dt
             if self.attack_cd <= 0:
                 player.take_damage(8)
-                self.attack_cd = 900  # ms entre ataques enemigos
+                self.attack_cd = 900  
 
     def screen_pos(self, player, proj_dist):
         dx = self.x - player.x
@@ -225,20 +220,16 @@ def cast_rays(surface, player):
         sin_a = math.sin(ray_angle)
         cos_a = math.cos(ray_angle)
 
-        # DDA
         for depth in range(1, int(DEPTH * 20)):
             t = depth * 0.05
             tx = player.x + cos_a * t
             ty = player.y + sin_a * t
             tile = wall_at(tx, ty)
             if tile:
-                # corrección de ojo de pez
                 dist = t * math.cos(ray_angle - player.angle)
                 proj_height = int(proj_dist / (dist + 0.001))
 
-                # color de pared con gradiente de distancia
                 colors = WALL_COLORS.get(tile, [(100,100,100),(150,150,150)])
-                # alternar color claro/oscuro según si golpea cara N/S o E/W
                 frac_x = tx - int(tx)
                 frac_y = ty - int(ty)
                 use_dark = (abs(frac_y) > abs(frac_x)) if abs(sin_a) > abs(cos_a) else False
@@ -254,7 +245,6 @@ def cast_rays(surface, player):
                 pygame.draw.rect(surface, col,
                                  (x_screen, wall_top, SCALE, wall_bottom - wall_top))
 
-                # guardar z_buffer
                 for i in range(SCALE):
                     if x_screen + i < WIDTH:
                         z_buffer[x_screen + i] = dist
@@ -263,28 +253,28 @@ def cast_rays(surface, player):
     return z_buffer, proj_dist
 
 # ─────────────────────────────────────────────
-#  DIBUJAR CIELO E SUELO
+#  DIBUJAR CIELO Y SUELO TECNOLÓGICO
 # ─────────────────────────────────────────────
 def draw_background(surface):
-    # cielo degradado infernal (negro → rojo oscuro)
+    # cielo ciberpunk (negro/azul oscuro a púrpura)
     for y in range(HALF_HEIGHT):
         t = y / HALF_HEIGHT
-        r = int(10 + 80 * t)
-        g = int(t * 5)
-        b = 0
+        r = int(t * 80)
+        g = int(t * 20)
+        b = int(20 + 80 * t)
         pygame.draw.line(surface, (r, g, b), (0, y), (WIDTH, y))
-    # suelo degradado oscuro
+    
+    # suelo metálico brillante y oscuro
     for y in range(HALF_HEIGHT, HEIGHT):
         t = (y - HALF_HEIGHT) / HALF_HEIGHT
-        shade = int(25 + 15 * t)
-        pygame.draw.line(surface, (shade, shade//2, shade//3),
+        shade = int(25 + 35 * t)
+        pygame.draw.line(surface, (shade//2, shade, shade + 10),
                          (0, y), (WIDTH, y))
 
 # ─────────────────────────────────────────────
-#  SPRITES ENEMIGOS
+#  SPRITES ENEMIGOS (Robots Mechas)
 # ─────────────────────────────────────────────
 def draw_enemies(surface, enemies, player, z_buffer, proj_dist):
-    # ordenar por distancia (más lejos primero)
     sorted_e = sorted(
         [e for e in enemies if e.alive],
         key=lambda e: -math.hypot(e.x - player.x, e.y - player.y)
@@ -299,162 +289,171 @@ def draw_enemies(surface, enemies, player, z_buffer, proj_dist):
         left = sx - sprite_w // 2
         top  = HALF_HEIGHT - sprite_h // 2
 
-        # animación: oscilación vertical
-        bob = int(math.sin(e.anim_t * 3) * 4)
+        # Animación mecánica rígida
+        bob = int(math.sin(e.anim_t * 4) * 5)
         top += bob
 
-        # dibujar sprite demonio (rectángulos de colores)
         if dist < z_buffer[max(0, min(sx, WIDTH-1))]:
-            draw_demon_sprite(surface, left, top, sprite_w, sprite_h, e, dist)
+            draw_mecha_sprite(surface, left, top, sprite_w, sprite_h, e, dist)
 
-def draw_demon_sprite(surface, x, y, w, h, enemy, dist):
-    """Dibuja un demonio estilizado con primitivas."""
+def draw_mecha_sprite(surface, x, y, w, h, enemy, dist):
+    """Dibuja un robot mecha con primitivas."""
     shade = max(0.2, 1.0 - dist / DEPTH)
     def sc(r, g, b): return (int(r*shade), int(g*shade), int(b*shade))
 
-    # cuerpo rojo
-    body_rect = pygame.Rect(x + w//4, y + h//3, w//2, h//2)
-    pygame.draw.rect(surface, sc(180, 30, 30), body_rect)
+    # Cuerpo principal metálico (chasis)
+    body_w = w // 2
+    body_h = h // 2
+    bx = x + w // 4
+    by = y + h // 3
+    pygame.draw.rect(surface, sc(120, 130, 140), (bx, by, body_w, body_h))
+    pygame.draw.rect(surface, sc(60, 70, 80), (bx, by, body_w, body_h), max(1, w//30)) # Borde de la armadura
 
-    # cabeza
-    head_r = w // 3
-    hx = x + w // 2
-    hy = y + h // 4
-    pygame.draw.circle(surface, sc(200, 60, 40), (hx, hy), head_r)
+    # Hombros mecánicos
+    shoulder_w = w // 5
+    shoulder_h = h // 5
+    pygame.draw.rect(surface, sc(160, 170, 180), (bx - shoulder_w//1.5, by, shoulder_w, shoulder_h))
+    pygame.draw.rect(surface, sc(160, 170, 180), (bx + body_w - shoulder_w//3, by, shoulder_w, shoulder_h))
 
-    # cuernos
-    pygame.draw.polygon(surface, sc(220, 180, 50), [
-        (hx - head_r, hy), (hx - head_r//2, hy - head_r),
-        (hx - head_r*2//3, hy - head_r//2)
-    ])
-    pygame.draw.polygon(surface, sc(220, 180, 50), [
-        (hx + head_r, hy), (hx + head_r//2, hy - head_r),
-        (hx + head_r*2//3, hy - head_r//2)
-    ])
+    # Cabeza (Monitor/Casco)
+    head_w = int(w / 2.5)
+    head_h = int(h / 3.5)
+    hx = x + w // 2 - head_w // 2
+    hy = y + h // 6
+    pygame.draw.rect(surface, sc(50, 50, 60), (hx, hy, head_w, head_h))
 
-    # ojos rojos brillantes
-    eye_r = max(1, head_r // 4)
-    pygame.draw.circle(surface, (255, 50, 50), (hx - head_r//3, hy - 2), eye_r)
-    pygame.draw.circle(surface, (255, 50, 50), (hx + head_r//3, hy - 2), eye_r)
+    # Visor luminoso del mecha (luz de neón cian que no se ve afectada por la sombra)
+    visor_w = head_w - max(4, w//15)
+    visor_h = max(2, head_h // 3)
+    vx = hx + (head_w - visor_w) // 2
+    vy = hy + head_h // 4
+    pygame.draw.rect(surface, CYAN, (vx, vy, visor_w, visor_h))
 
-    # barra de salud
+    # Antena en la cabeza con luz de advertencia roja
+    pygame.draw.line(surface, sc(200, 200, 200), (hx + head_w//2, hy), (hx + head_w//2, hy - head_h//2), 2)
+    pygame.draw.circle(surface, LASER_RED, (hx + head_w//2, hy - head_h//2), max(2, w//20))
+
+    # Barra de salud (estilo ciberpunk cian)
     bar_w = w
-    bar_h = 4
-    bx, by = x, y - 8
-    pygame.draw.rect(surface, (80, 0, 0), (bx, by, bar_w, bar_h))
+    bar_h = max(3, h // 20)
+    bar_x, bar_y = x, y - bar_h*2
+    pygame.draw.rect(surface, (0, 60, 60), (bar_x, bar_y, bar_w, bar_h))
     hp_ratio = enemy.health / 60
-    pygame.draw.rect(surface, (220, 30, 30), (bx, by, int(bar_w * hp_ratio), bar_h))
+    pygame.draw.rect(surface, CYAN, (bar_x, bar_y, int(bar_w * hp_ratio), bar_h))
 
 # ─────────────────────────────────────────────
 #  HUD
 # ─────────────────────────────────────────────
 def draw_hud(surface, player, font_big, font_small, shoot_flash, kill_msg):
-    # barra inferior
     hud_h = 90
     hud_surf = pygame.Surface((WIDTH, hud_h), pygame.SRCALPHA)
-    hud_surf.fill((0, 0, 0, 180))
+    hud_surf.fill((0, 15, 30, 180)) # Fondo azulado transparente
     surface.blit(hud_surf, (0, HEIGHT - hud_h))
 
     # ── SALUD ──
-    pygame.draw.rect(surface, (100,0,0), (20, HEIGHT-70, 200, 24))
+    pygame.draw.rect(surface, (0,50,0), (20, HEIGHT-70, 200, 24))
     hp_w = int(200 * max(0, player.health) / 100)
-    hp_col = (0,200,0) if player.health > 50 else (220,180,0) if player.health > 25 else (220,30,30)
+    hp_col = GREEN if player.health > 50 else YELLOW if player.health > 25 else LASER_RED
     pygame.draw.rect(surface, hp_col, (20, HEIGHT-70, hp_w, 24))
-    pygame.draw.rect(surface, WHITE,  (20, HEIGHT-70, 200, 24), 2)
-    hp_txt = font_small.render(f"♥ {player.health}", True, WHITE)
+    pygame.draw.rect(surface, CYAN,  (20, HEIGHT-70, 200, 24), 2)
+    hp_txt = font_small.render(f"ARMOR {player.health}%", True, WHITE)
     surface.blit(hp_txt, (28, HEIGHT-68))
 
     # ── MUNICIÓN ──
-    ammo_txt = font_big.render(f"⚡{player.ammo}", True, YELLOW)
+    ammo_txt = font_big.render(f"⚡{player.ammo}", True, CYAN)
     surface.blit(ammo_txt, (WIDTH//2 - 40, HEIGHT-72))
 
     # ── SCORE ──
-    score_txt = font_small.render(f"KILLS: {player.score//10}", True, WHITE)
+    score_txt = font_small.render(f"MECHAS: {player.score//10}", True, CYAN)
     surface.blit(score_txt, (WIDTH - 160, HEIGHT-70))
 
-    # ── PISTOLA ──
+    # ── ARMA DE ENERGÍA ──
     draw_gun(surface, shoot_flash)
 
-    # ── MIRA ──
+    # ── MIRA TECNOLÓGICA ──
     cx, cy = WIDTH // 2, HEIGHT // 2
-    pygame.draw.line(surface, WHITE, (cx-12, cy), (cx+12, cy), 2)
-    pygame.draw.line(surface, WHITE, (cx, cy-12), (cx, cy+12), 2)
-    pygame.draw.circle(surface, WHITE, (cx, cy), 5, 1)
+    pygame.draw.line(surface, CYAN, (cx-12, cy), (cx-4, cy), 2)
+    pygame.draw.line(surface, CYAN, (cx+4, cy), (cx+12, cy), 2)
+    pygame.draw.line(surface, CYAN, (cx, cy-12), (cx, cy-4), 2)
+    pygame.draw.line(surface, CYAN, (cx, cy+4), (cx, cy+12), 2)
+    pygame.draw.circle(surface, LASER_RED, (cx, cy), 3, 1)
 
-    # ── FLASH DE DOLOR ──
+    # ── FLASH DE DOLOR (Glitch / Escudo roto) ──
     if player.pain_flash > 0:
-        alpha = int(min(180, player.pain_flash * 9))
+        alpha = int(min(150, player.pain_flash * 7))
         pain_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        pain_surf.fill((200, 0, 0, alpha))
+        pain_surf.fill((255, 0, 50, alpha))
         surface.blit(pain_surf, (0, 0))
 
     # ── MENSAJE DE KILL ──
     if kill_msg > 0:
-        msg = font_big.render("DEMON SLAIN!", True, YELLOW)
+        msg = font_big.render("MECHA DESTRUIDO!", True, CYAN)
         surface.blit(msg, (WIDTH//2 - msg.get_width()//2, HEIGHT//2 - 80))
 
 def draw_gun(surface, shoot_flash):
-    """Dibuja la pistola en la parte inferior central."""
     gx = WIDTH // 2
     gy = HEIGHT - 10
     kick = -20 if shoot_flash > 0 else 0
 
-    # caño
-    pygame.draw.rect(surface, (60,60,60), (gx-8, gy-80+kick, 16, 60))
-    # cuerpo
-    pygame.draw.rect(surface, (50,50,50), (gx-20, gy-50+kick, 40, 45))
+    # caño del arma de energía
+    pygame.draw.rect(surface, (80,80,90), (gx-10, gy-80+kick, 20, 60))
+    pygame.draw.rect(surface, CYAN, (gx-4, gy-75+kick, 8, 40)) # Núcleo brillante
+    
+    # cuerpo del rifle
+    pygame.draw.rect(surface, (40,40,50), (gx-25, gy-50+kick, 50, 45))
+    
     # agarre
-    pygame.draw.polygon(surface, (40,40,40), [
-        (gx-10, gy-10+kick), (gx+10, gy-10+kick),
-        (gx+15, gy+kick),    (gx-5,  gy+kick)
+    pygame.draw.polygon(surface, (20,20,30), [
+        (gx-15, gy-10+kick), (gx+15, gy-10+kick),
+        (gx+20, gy+kick),    (gx-10, gy+kick)
     ])
-    # muzzle flash
+    
+    # Flash de disparo azul/eléctrico
     if shoot_flash > 0:
-        for _ in range(8):
+        for _ in range(12):
             angle = random.uniform(0, 2*math.pi)
-            r = random.randint(5, 20)
+            r = random.randint(5, 25)
             fx = gx + int(math.cos(angle) * r)
             fy = gy - 85 + kick + int(math.sin(angle) * r // 2)
-            pygame.draw.circle(surface, YELLOW, (fx, fy), random.randint(3,8))
-        pygame.draw.circle(surface, WHITE, (gx, gy-85+kick), 6)
+            pygame.draw.circle(surface, BLUE_NEON, (fx, fy), random.randint(3,8))
+        pygame.draw.circle(surface, WHITE, (gx, gy-85+kick), 8)
 
 # ─────────────────────────────────────────────
 #  PANTALLAS
 # ─────────────────────────────────────────────
 def draw_title_screen(surface, font_title, font_big, font_small):
-    surface.fill((10,0,0))
-    # efecto de fondo
+    surface.fill((5, 10, 20))
+    # efecto de rejilla cibernética en el fondo
     for i in range(0, WIDTH, 40):
-        for j in range(0, HEIGHT, 40):
-            if random.random() < 0.02:
-                pygame.draw.rect(surface,(40,0,0),(i,j,40,40))
+        pygame.draw.line(surface, (10, 30, 60), (i, 0), (i, HEIGHT))
+    for j in range(0, HEIGHT, 40):
+        pygame.draw.line(surface, (10, 30, 60), (0, j), (WIDTH, j))
 
-    title = font_title.render("MECHAARENA", True, RED)
-    sub   = font_title.render("INFERNO",     True, ORANGE)
-    start = font_big.render("[ENTER] COMENZAR", True, YELLOW)
+    title = font_title.render("MECHAARENA", True, WHITE)
+    sub   = font_title.render("CYBERPUNK",     True, CYAN)
+    start = font_big.render("[ENTER] INICIAR SISTEMA", True, GREEN)
     info  = font_small.render("WASD=Mover  RATON=Apuntar  CLICK=Disparar  ESC=Salir", True, GRAY)
 
     surface.blit(title, (WIDTH//2 - title.get_width()//2, 160))
     surface.blit(sub,   (WIDTH//2 - sub.get_width()//2,   240))
-    # línea roja decorativa
-    pygame.draw.line(surface, RED, (WIDTH//4, 310), (3*WIDTH//4, 310), 3)
-    surface.blit(start, (WIDTH//2 - start.get_width()//2, 370))
-    surface.blit(info,  (WIDTH//2 - info.get_width()//2,  460))
+    pygame.draw.line(surface, BLUE_NEON, (WIDTH//4, 320), (3*WIDTH//4, 320), 4)
+    surface.blit(start, (WIDTH//2 - start.get_width()//2, 380))
+    surface.blit(info,  (WIDTH//2 - info.get_width()//2,  480))
 
 def draw_game_over(surface, font_title, font_big, player):
-    surface.fill((5,0,0))
-    over  = font_title.render("GAME OVER",        True, RED)
-    score = font_big.render(f"Demonios eliminados: {player.score//10}", True, YELLOW)
-    retry = font_big.render("[R] Reintentar  [ESC] Salir", True, GRAY)
+    surface.fill((10, 0, 5))
+    over  = font_title.render("SISTEMA CRITICO: FALLO", True, LASER_RED)
+    score = font_big.render(f"Mechas destruidos: {player.score//10}", True, CYAN)
+    retry = font_big.render("[R] Reiniciar  [ESC] Apagar", True, GRAY)
     surface.blit(over,  (WIDTH//2 - over.get_width()//2, 250))
     surface.blit(score, (WIDTH//2 - score.get_width()//2, 360))
     surface.blit(retry, (WIDTH//2 - retry.get_width()//2, 450))
 
 def draw_win(surface, font_title, font_big, player):
-    surface.fill((0,5,0))
-    win   = font_title.render("VICTORIA!",        True, YELLOW)
-    score = font_big.render(f"Demonios eliminados: {player.score//10}", True, GREEN)
-    retry = font_big.render("[R] Jugar otra vez  [ESC] Salir", True, GRAY)
+    surface.fill((0, 15, 10))
+    win   = font_title.render("ZONA ASEGURADA", True, GREEN)
+    score = font_big.render(f"Mechas destruidos: {player.score//10}", True, CYAN)
+    retry = font_big.render("[R] Nueva incursión  [ESC] Salir", True, GRAY)
     surface.blit(win,   (WIDTH//2 - win.get_width()//2, 250))
     surface.blit(score, (WIDTH//2 - score.get_width()//2, 360))
     surface.blit(retry, (WIDTH//2 - retry.get_width()//2, 450))
@@ -470,19 +469,19 @@ def draw_minimap(surface, player, enemies):
             v = MAP[row][col]
             col_map = DARK_GRAY if v == 0 else WALL_COLORS.get(v, [[GRAY]])[0]
             pygame.draw.rect(surface, col_map, (ox + col*cell, oy + row*cell, cell-1, cell-1))
-    # jugador
+    
     px = int(ox + player.x * cell)
     py = int(oy + player.y * cell)
     pygame.draw.circle(surface, GREEN, (px, py), 3)
     ex = px + int(math.cos(player.angle) * 8)
     ey = py + int(math.sin(player.angle) * 8)
-    pygame.draw.line(surface, YELLOW, (px,py), (ex,ey), 2)
-    # enemigos
+    pygame.draw.line(surface, CYAN, (px,py), (ex,ey), 2)
+    
     for e in enemies:
         if e.alive:
             ex2 = int(ox + e.x * cell)
             ey2 = int(oy + e.y * cell)
-            pygame.draw.circle(surface, RED, (ex2, ey2), 2)
+            pygame.draw.circle(surface, LASER_RED, (ex2, ey2), 2)
 
 # ─────────────────────────────────────────────
 #  SPAWN INICIAL DE ENEMIGOS
@@ -502,12 +501,11 @@ def make_enemies():
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("MechaArena Inferno")
+    pygame.display.set_caption("MechaArena Cyberpunk")
     clock  = pygame.time.Clock()
     pygame.mouse.set_visible(False)
     pygame.event.set_grab(True)
 
-    # Fuentes
     try:
         font_title = pygame.font.SysFont("impact", 80)
         font_big   = pygame.font.SysFont("impact", 36)
@@ -517,7 +515,6 @@ def main():
         font_big   = pygame.font.Font(None, 36)
         font_small = pygame.font.Font(None, 22)
 
-    # Estado del juego
     STATE_TITLE  = 0
     STATE_PLAY   = 1
     STATE_OVER   = 2
@@ -570,13 +567,11 @@ def main():
                         if alive_after < alive_before:
                             kill_msg = 45
 
-        # ── TÍTULO ──
         if state == STATE_TITLE:
             draw_title_screen(screen, font_title, font_big, font_small)
             pygame.display.flip()
             continue
 
-        # ── GAME OVER / WIN ──
         if state == STATE_OVER:
             draw_game_over(screen, font_title, font_big, player)
             pygame.display.flip()
@@ -586,7 +581,6 @@ def main():
             pygame.display.flip()
             continue
 
-        # ── JUGANDO ──
         keys = pygame.key.get_pressed()
         player.move(keys, dt)
         player.rotate_mouse(mx)
@@ -594,7 +588,6 @@ def main():
         for e in enemies:
             e.update(player, dt)
 
-        # comprobar condiciones
         if player.health <= 0:
             state = STATE_OVER
         if all(not e.alive for e in enemies):
@@ -603,15 +596,13 @@ def main():
         if shoot_flash > 0: shoot_flash -= 1
         if kill_msg    > 0: kill_msg    -= 1
 
-        # ── RENDER ──
         draw_background(screen)
         z_buf, pdist = cast_rays(screen, player)
         draw_enemies(screen, enemies, player, z_buf, pdist)
         draw_hud(screen, player, font_big, font_small, shoot_flash, kill_msg)
         draw_minimap(screen, player, enemies)
 
-        # FPS
-        fps_txt = font_small.render(f"FPS:{int(clock.get_fps())}", True, GRAY)
+        fps_txt = font_small.render(f"FPS:{int(clock.get_fps())}", True, WHITE)
         screen.blit(fps_txt, (WIDTH-80, 10))
 
         pygame.display.flip()
